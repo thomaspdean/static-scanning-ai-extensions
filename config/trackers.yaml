@@ -1,0 +1,43 @@
+# Third-party analytics / advertising / monitoring destinations (Stage 4).
+# An entry matches a host when host == entry or host ends with ".<entry>".
+# Add full hosts (analytics.google.com) when the parent domain is not itself a tracker.
+trackers:
+  - {name: Google Analytics, kind: analytics, domains: [google-analytics.com, analytics.google.com, googletagmanager.com, googletagservices.com, stats.g.doubleclick.net]}
+  - {name: Google Ads, kind: advertising, domains: [doubleclick.net, googleadservices.com, googlesyndication.com, adservice.google.com]}
+  - {name: Mixpanel, kind: analytics, domains: [mixpanel.com, mxpnl.com]}
+  - {name: Amplitude, kind: analytics, domains: [amplitude.com]}
+  - {name: Segment, kind: analytics, domains: [segment.com, segment.io]}
+  - {name: PostHog, kind: analytics, domains: [posthog.com]}
+  - {name: Heap, kind: analytics, domains: [heap.io, heapanalytics.com]}
+  - {name: Plausible, kind: analytics, domains: [plausible.io]}
+  - {name: Matomo, kind: analytics, domains: [matomo.cloud, matomo.org]}
+  - {name: Umami, kind: analytics, domains: [umami.is]}
+  - {name: Statsig, kind: feature_flags, domains: [statsig.com, featureassets.org, prodregistryv2.org, statsigapi.net]}
+  - {name: LaunchDarkly, kind: feature_flags, domains: [launchdarkly.com]}
+  - {name: Optimizely, kind: feature_flags, domains: [optimizely.com]}
+  - {name: VWO, kind: feature_flags, domains: [vwo.com]}
+  - {name: FullStory, kind: session_replay, domains: [fullstory.com]}
+  - {name: Hotjar, kind: session_replay, domains: [hotjar.com, hotjar.io]}
+  - {name: Mouseflow, kind: session_replay, domains: [mouseflow.com]}
+  - {name: Microsoft Clarity, kind: session_replay, domains: [clarity.ms]}
+  - {name: LogRocket, kind: session_replay, domains: [logrocket.com, lr-ingest.io, logrocket.io]}
+  - {name: Sentry, kind: error_monitoring, domains: [sentry.io, sentry-cdn.com]}
+  - {name: Bugsnag, kind: error_monitoring, domains: [bugsnag.com]}
+  - {name: Rollbar, kind: error_monitoring, domains: [rollbar.com]}
+  - {name: Datadog, kind: error_monitoring, domains: [datadoghq.com, datadoghq-browser-agent.com, browser-intake-datadoghq.com]}
+  - {name: New Relic, kind: error_monitoring, domains: [newrelic.com, nr-data.net]}
+  - {name: Meta Pixel, kind: advertising, domains: [connect.facebook.net, facebook.net]}
+  - {name: LinkedIn Insight, kind: advertising, domains: [px.ads.linkedin.com, ads.linkedin.com, snap.licdn.com]}
+  - {name: TikTok Pixel, kind: advertising, domains: [analytics.tiktok.com]}
+  - {name: X/Twitter Ads, kind: advertising, domains: [ads-twitter.com, ads.twitter.com]}
+  - {name: Pinterest Tag, kind: advertising, domains: [ct.pinterest.com]}
+  - {name: Adjust, kind: attribution, domains: [adjust.com, adjust.io]}
+  - {name: AppsFlyer, kind: attribution, domains: [appsflyer.com]}
+  - {name: Branch, kind: attribution, domains: [branch.io]}
+  - {name: HubSpot, kind: marketing, domains: [hubspot.com, hs-analytics.net, hsforms.com, hs-scripts.com, hsappstatic.net]}
+  - {name: Intercom, kind: marketing, domains: [intercom.io, intercomcdn.com]}
+  - {name: Crisp, kind: marketing, domains: [crisp.chat]}
+  - {name: OneSignal, kind: marketing, domains: [onesignal.com]}
+  - {name: Customer.io, kind: marketing, domains: [customer.io]}
+  - {name: Braze, kind: marketing, domains: [braze.com]}
+  - {name: Ad networks, kind: advertising, domains: [adnxs.com, criteo.com, taboola.com, outbrain.com, pubmatic.com, rubiconproject.com, openx.net, quantserve.com, scorecardresearch.com]}

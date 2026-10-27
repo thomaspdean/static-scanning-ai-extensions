@@ -7,6 +7,7 @@ import sys
 from .config import load_settings
 from .ingest import ingest_all
 from .analyze_manifest import analyze_record, load_permission_tiers
+from .classify import build_shared, classify_record, load_lists, write_shared_csv
 from .js_scan import load_scan_config, scan_records
 from .record import STATUS_OK, read_records, write_record, write_records, write_schema
 
@@ -53,6 +54,23 @@ def cmd_scan(args) -> int:
     return 0
 
 
+def cmd_classify(args) -> int:
+    st = load_settings()
+    lists = load_lists()
+    recs = read_records(st.out_dir)
+    for r in recs:
+        if args.only and not any(o in r.folder for o in args.only):
+            continue
+        if r.ingest_status == STATUS_OK and (r.scan or r.manifest):
+            classify_record(r, lists)
+            write_record(r, st.out_dir)
+    rows = build_shared(recs)
+    path = write_shared_csv(rows, st.out_dir)
+    print(f"classified={sum(bool(r.endpoints) for r in recs)} of {len(recs)} records; "
+          f"{len(rows)} shared third-party hosts -> {path.relative_to(st.root)}")
+    return 0
+
+
 def _stub(name: str, stage: int):
     def run(args) -> int:
         print(f"'{name}' is not implemented yet (Stage {stage}).", file=sys.stderr)
@@ -66,13 +84,16 @@ def build_parser() -> argparse.ArgumentParser:
     ing = sub.add_parser("ingest", help="verify and unpack extensions, write one JSON file per extension in out/records/")
     ing.add_argument("--only", nargs="*", help="substring filter on folder name")
     ing.set_defaults(func=cmd_ingest)
-    an = sub.add_parser("analyze", help="manifest analysis: fields and derived flags (Stage 2)")
+    an = sub.add_parser("analyze", help="manifest analysis: fields and derived flags")
     an.add_argument("--only", nargs="*", help="substring filter on folder name")
     an.set_defaults(func=cmd_analyze)
-    sc = sub.add_parser("scan", help="JS/HTML signal scan (Stage 3)")
+    sc = sub.add_parser("scan", help="JS/HTML signal scan")
     sc.add_argument("--only", nargs="*", help="substring filter on folder name")
     sc.set_defaults(func=cmd_scan)
-    for name, stage, h in [("classify", 4, "endpoint classification"), ("scrape", 5, "Chrome Web Store scraping"),
+    cl = sub.add_parser("classify", help="label endpoint hosts by party/category, write shared_endpoints.csv")
+    cl.add_argument("--only", nargs="*", help="substring filter on folder name")
+    cl.set_defaults(func=cmd_classify)
+    for name, stage, h in [("scrape", 5, "Chrome Web Store scraping"),
                            ("score", 6, "scoring and outputs"), ("report", 6, "console report")]:
         s = sub.add_parser(name, help=f"{h} (Stage {stage}, stub)")
         s.set_defaults(func=_stub(name, stage))

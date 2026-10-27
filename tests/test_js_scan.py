@@ -1,8 +1,5 @@
 import time
 
-import pytest
-
-from extscan import js_scan
 from extscan.js_scan import is_placeholder_secret, load_scan_config, scan_extension, scan_text, vendor_reason
 
 CFG = load_scan_config()
@@ -153,3 +150,10 @@ def test_placeholder_secrets_not_flagged():
         assert sig(f"const API_KEY = '{v}'", "sensitive", "hardcoded_secret_assign") == 0
     assert not is_placeholder_secret("const API_KEY = 'a9Xk2LmQ7rT4vB8nZ3pW'")
     assert sig("const API_KEY = 'a9Xk2LmQ7rT4vB8nZ3pW'", "sensitive", "hardcoded_secret_assign") == 1
+
+
+def test_manifest_json_not_scanned_for_endpoints(tmp_path):
+    ext = _ext(tmp_path, {"manifest.json": '{"update_url": "https://clients2.google.com/service/update2/crx"}',
+                          "sub/manifest.json": '{"x": "https://other.example.io/a"}'})
+    r = scan_extension(ext, CFG)
+    assert [e["host"] for e in r["endpoints"]] == ["other.example.io"]

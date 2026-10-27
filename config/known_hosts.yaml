@@ -1,0 +1,50 @@
+# Hosts that are recognised but are neither trackers nor LLM providers (Stage 4).
+# cdn_static: libraries, fonts and static assets. known_service: large platforms, stores and
+# reference sites. Both are still labelled third party unless they match the extension itself.
+cdn_static:
+  - jsdelivr.net
+  - cdnjs.cloudflare.com
+  - unpkg.com
+  - gstatic.com
+  - fonts.googleapis.com
+  - ajax.googleapis.com
+  - bootstrapcdn.com
+  - fontawesome.com
+  - typekit.net
+  - cloudfront.net
+  - githubusercontent.com
+  - googleusercontent.com
+  - amazonaws.com
+  - azureedge.net
+  - fastly.net
+  - akamaized.net
+known_service:
+  - google.com
+  - googleapis.com
+  - youtube.com
+  - youtu.be
+  - github.com
+  - github.io
+  - linkedin.com
+  - twitter.com
+  - x.com
+  - facebook.com
+  - instagram.com
+  - reddit.com
+  - discord.com
+  - apple.com
+  - microsoft.com
+  - microsoftonline.com
+  - live.com
+  - bing.com
+  - duckduckgo.com
+  - wikipedia.org
+  - arxiv.org
+  - notion.so
+  - slack.com
+  - zoom.us
+  - paypal.com
+  - stripe.com
+  - jetbrains.com
+  - visualstudio.com
+  - mozilla.org

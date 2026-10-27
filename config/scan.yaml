@@ -45,7 +45,25 @@ ignore_hosts:
   - whatwg.org
   - mathworks.com
   - openxmlformats.org
-  - microsoft.com/office
+  - schemas.microsoft.com
+  - schemas.openxmlformats.org
+  - purl.oclc.org
+  - ns.adobe.com
+  - xfa.org
+  - www.ibm.com
+  # license / docs links that appear in library banners and error messages
+  - jquery.org
+  - tldrlegal.com
+  - feross.org
+  - mths.be
+  - engelschall.com
+  - stuartk.com
+  - svgjs.dev
+  - bohemiancoding.com
+  - eclipse.org
+  - konvajs.org
+  - prosemirror.net
+  - pkg.go.dev
 
 # Files are tagged "vendor" (bundled third-party library) when the path or the first
 # 3 KB matches. Heuristic: a webpack bundle that embeds a library is not split up.

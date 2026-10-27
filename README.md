@@ -21,6 +21,7 @@ Commands run in order and share one set of per-extension records in `out/records
 extscan ingest
 extscan analyze
 extscan scan
+extscan classify
 ```
 
 ### `extscan ingest`
@@ -42,7 +43,7 @@ Reads each manifest and records what the extension is *allowed* to do. Runs no c
 - Broad host access is the norm for this category, so `broad_host`, `can_inject_anywhere` and `war_exposed_to_all_sites` are weak signals. High-risk permissions and `broad_cs_*` combinations discriminate better.
 
 ### `extscan scan`
-Reads the extension's code and records what it *appears to do*. Covers `.js`, `.mjs`, `.cjs` and `.html` for all signals, and `.json` for endpoint URLs only. Minified files are beautified first (5 MB cap, 10 s timeout, otherwise scanned raw); files over 40 MB are skipped and recorded in `scan.coverage`.
+Reads the extension's code and records what it *appears to do*. Covers `.js`, `.mjs`, `.cjs` and `.html` for all signals, and `.json` for endpoint URLs only (the root `manifest.json` is skipped; `analyze` covers it). Minified files are beautified first (5 MB cap, 10 s timeout, otherwise scanned raw); files over 40 MB are skipped and recorded in `scan.coverage`.
 
 1. **Endpoints.** URL literals (`http(s)://`, `ws(s)://`) and their hosts. Filtered out: XML and schema namespaces, `localhost`, documentation links, and URLs inside comments or license banners. Each host carries a `near_sink` hint, set when a network call appears within 200 characters.
 2. **Network sinks.** Calls that can send data out: `fetch`, `XMLHttpRequest`, `sendBeacon`, `WebSocket`, `EventSource`, image-pixel beacons, HTTP client libraries, native messaging, `webRequest` listeners.
@@ -54,14 +55,32 @@ Reads the extension's code and records what it *appears to do*. Covers `.js`, `.
 
 Limits, ignored hosts and vendor rules are in `config/scan.yaml`; the regexes are in `extscan/signals.py`.
 
+### `extscan classify`
+Labels every candidate endpoint host and writes `out/shared_endpoints.csv`. Uses the hosts found by `scan` plus the hosts the manifest declares, so run `scan` (and ideally `analyze`) first.
+
+Each endpoint in `record.endpoints` gets a `party` (`1p`, `3p`, or `n/a` for templated and local hosts) and a `category`, applied in this order:
+
+1. `tracker`: analytics, advertising, session replay, error monitoring, attribution (`config/trackers.yaml`).
+2. `llm_provider`: OpenAI, Anthropic, Gemini and others (`config/llm_providers.yaml`).
+3. `first_party`: the host's registrable domain belongs to the extension. Evidence, in order of confidence: `homepage` (manifest `homepage_url`), `store_website`, `externally_connectable` (the manifest's declared web origins), then `name_match` (the domain label appears in the extension's name; generic words and known platforms never match). The evidence is stored in `basis`.
+4. `cdn_static` and `known_service`: recognised CDNs and large platforms (`config/known_hosts.yaml`). Still `3p`.
+5. `unknown`: third-party and unlabeled. These need human review.
+
+Also recorded per endpoint: the registrable domain (public-suffix aware), whether it was seen in `code`, the `manifest`, or both, whether it appears in first-party code, and the `near_sink` hint.
+
+`out/shared_endpoints.csv` lists third-party hosts referenced by two or more extensions, with category, extension count, how many reference it in first-party code or near a network call, and the extension names. This is the "shared third-party endpoints" measurement.
+
+`unknown` is large for extensions that embed lists of supported websites (shopping, news and so on), because those are page-awareness lists rather than destinations. Prefer `near_sink`, `llm_provider` and `tracker` over the raw `unknown` count when judging where data goes.
+
 ### Planned
-`classify` (endpoint party labels: first party, tracker, LLM provider), `scrape` (Chrome Web Store user counts and privacy practices), `score` and `report` (ranking and outputs). These subcommands exist as stubs and exit with code 2.
+`scrape` (Chrome Web Store user counts and privacy practices), `score` and `report` (ranking and outputs). These subcommands exist as stubs and exit with code 2.
 
 ## Output
 
 | Path | Contents |
 |---|---|
 | `out/records/<ext_id>.json` | One record per extension; each command fills its own section |
+| `out/shared_endpoints.csv` | Third-party hosts shared by two or more extensions |
 | `out/index.json` | Lightweight listing: id, name, tier, ingest status, which stages are filled |
 | `out/schema.json` | Field names, types and the stage that populates each |
 | `work/unpacked/<ext_id>/` | Extracted extension files |
@@ -72,11 +91,12 @@ All of these are git-ignored. `scan` writes each record as soon as it finishes, 
 
 ```
 extscan/    cli.py  config.py  record.py  ingest.py  manifest.py
-            analyze_manifest.py  signals.py  js_scan.py
+            analyze_manifest.py  signals.py  js_scan.py  classify.py
 config/     settings.yaml     paths and extraction limits
             permissions.yaml  permission risk tiers
             scan.yaml         scan limits, ignored hosts, vendor rules
-tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py  test_record_io.py
+            trackers.yaml  llm_providers.yaml  known_hosts.yaml   endpoint lists
+tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py  test_record_io.py  test_classify.py
 ```
 
 ```sh

@@ -191,6 +191,8 @@ def scan_extension(ext_dir: Path, cfg: dict[str, Any]) -> dict[str, Any]:
         if sfx not in code_sfx and sfx not in json_sfx:
             continue
         rel = path.relative_to(ext_dir).as_posix()
+        if rel == "manifest.json":      # covered by Stage 2; its update_url/homepage are not code endpoints
+            continue
         size = path.stat().st_size
         cov["files_total"] += 1
 

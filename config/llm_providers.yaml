@@ -1,0 +1,26 @@
+# LLM / AI API destinations (Stage 4). Same matching rule as trackers.yaml.
+# Provider-owned sites (openai.com, anthropic.com) are included too: extensions often link users there
+# to fetch an API key, and the destination is still the provider.
+providers:
+  - {name: OpenAI, domains: [api.openai.com, chatgpt.com, chat.openai.com, openai.com]}
+  - {name: Anthropic, domains: [api.anthropic.com, claude.ai, anthropic.com]}
+  - {name: Google Gemini, domains: [generativelanguage.googleapis.com, aiplatform.googleapis.com, gemini.google.com]}
+  - {name: Microsoft Azure OpenAI, domains: [openai.azure.com, cognitiveservices.azure.com]}
+  - {name: Amazon Bedrock, domains: [bedrock-runtime.amazonaws.com]}
+  - {name: Mistral, domains: [api.mistral.ai, mistral.ai]}
+  - {name: Cohere, domains: [api.cohere.com, api.cohere.ai]}
+  - {name: DeepSeek, domains: [api.deepseek.com, deepseek.com]}
+  - {name: Groq, domains: [api.groq.com]}
+  - {name: xAI, domains: [api.x.ai, x.ai]}
+  - {name: Perplexity, domains: [api.perplexity.ai, perplexity.ai]}
+  - {name: OpenRouter, domains: [openrouter.ai]}
+  - {name: Together AI, domains: [api.together.xyz, together.ai]}
+  - {name: Fireworks AI, domains: [api.fireworks.ai]}
+  - {name: Hugging Face, domains: [huggingface.co, api-inference.huggingface.co]}
+  - {name: Replicate, domains: [api.replicate.com, replicate.com]}
+  - {name: Alibaba DashScope, domains: [dashscope.aliyuncs.com, dashscope-intl.aliyuncs.com]}
+  - {name: Zhipu / ChatGLM, domains: [open.bigmodel.cn, bigmodel.cn, chatglm.cn]}
+  - {name: Moonshot / Kimi, domains: [api.moonshot.cn, api.moonshot.ai]}
+  - {name: SiliconFlow, domains: [api.siliconflow.cn, siliconflow.cn]}
+  - {name: Baidu Qianfan, domains: [qianfan.baidubce.com, aip.baidubce.com]}
+  - {name: ElevenLabs, domains: [api.elevenlabs.io]}
