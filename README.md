@@ -5,12 +5,12 @@ Input is a folder of Chrome extension downloads; output is one record per extens
 
 ## Status
 
-Built in stages. Only Stage 1 is implemented.
+Built in stages. Stages 1 and 2 are implemented.
 
 | Stage | What | State |
 |---|---|---|
 | 1 | Setup and input handling (`ingest`) | done |
-| 2 | Manifest analysis (`analyze`) | stub |
+| 2 | Manifest analysis (`analyze`) | done |
 | 3 | JS/HTML scanning (`scan`) | stub |
 | 4 | Endpoint classification (`classify`) | stub |
 | 5 | Chrome Web Store scraping (`scrape`) | stub |
@@ -30,6 +30,17 @@ Each record has an `ingest_status` of `ok`, `skipped`, `hash_mismatch` or `faile
 
 Last full run: 64 loaded, 0 skipped, 0 hash-mismatched, 0 failed.
 
+## What Stage 2 does
+
+`extscan analyze` reads each unpacked `manifest.json` and fills `Record.manifest`. It runs no code and makes no network calls, so it shows what an extension is *allowed* to do, not what it does.
+
+- **Fields:** permissions (required and optional), host permissions, content scripts (`run_at`, `all_frames`, `world`, matches), background, side panel, `externally_connectable`, web-accessible resources, CSP, OAuth scopes, `update_url`. MV2 manifests are handled.
+- **Derived flags** (under `manifest.flags`): `broad_host`, `host_scope` (all / wide / narrow / none), `cs_document_start`, `cs_all_frames`, `cs_main_world`, the same three restricted to scripts that run on every site (`broad_cs_*`), `high_risk_permissions`, `can_inject_anywhere`, `externally_connectable_broad`, `war_exposed_to_all_sites`, CSP and `update_url` checks.
+- **Permission tiers** (high / medium / low) live in `config/permissions.yaml` and can be edited.
+- **Reading the flags:** broad host access is the norm for this category (45 of 64 extensions), so `broad_host`, `can_inject_anywhere` and `war_exposed_to_all_sites` are weak signals. High-risk permissions and `broad_cs_*` combinations are the more selective ones.
+
+Pilot set used at each checkpoint: AI Job Assistant Pro (tiny), AskSia (1K-10K, early/deep injection), Monica (1M+).
+
 ## Run it
 
 ```sh
@@ -37,10 +48,11 @@ python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
 
 .venv/bin/extscan ingest                       # all extensions in extension-targets/
+.venv/bin/extscan analyze                      # Stage 2, needs ingest first
 .venv/bin/extscan ingest --only grammarly monica   # folder-name substring filter
 .venv/bin/extscan --help                       # other subcommands are stubs (exit code 2)
 
-.venv/bin/pytest -q                            # 11 tests
+.venv/bin/pytest -q                            # 26 tests
 ```
 
 Prints `loaded=N total=N` and one line per non-ok extension.
@@ -48,9 +60,10 @@ Prints `loaded=N total=N` and one line per non-ok extension.
 ## Layout
 
 ```
-extscan/    cli.py  config.py  record.py  ingest.py  manifest.py
+extscan/    cli.py  config.py  record.py  ingest.py  manifest.py  analyze_manifest.py
 config/     settings.yaml        paths and extraction limits
-tests/      test_ingest.py
+            permissions.yaml     permission risk tiers
+tests/      test_ingest.py  test_analyze_manifest.py
 extension-targets/               input (gitignored): <folder>/{meta.json,*.crx,*.zip}
 work/unpacked/<ext_id>/          extracted extensions (gitignored)
 out/                             records.jsonl, schema.json (gitignored)

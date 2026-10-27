@@ -6,7 +6,8 @@ import sys
 
 from .config import load_settings
 from .ingest import ingest_all
-from .record import STATUS_OK, write_records, write_schema
+from .analyze_manifest import analyze_record, load_permission_tiers
+from .record import STATUS_OK, read_records, write_records, write_schema
 
 
 def cmd_ingest(args) -> int:
@@ -23,6 +24,21 @@ def cmd_ingest(args) -> int:
     return 0
 
 
+def cmd_analyze(args) -> int:
+    st = load_settings()
+    tiers = load_permission_tiers()
+    recs = read_records(st.out_dir)
+    done = 0
+    for r in recs:
+        if args.only and not any(o in r.folder for o in args.only):
+            continue
+        analyze_record(r, st, tiers)
+        done += bool(r.manifest)
+    write_records(recs, st.out_dir)
+    print(f"analyzed={done} of {len(recs)} records")
+    return 0
+
+
 def _stub(name: str, stage: int):
     def run(args) -> int:
         print(f"'{name}' is not implemented yet (Stage {stage}).", file=sys.stderr)
@@ -36,7 +52,10 @@ def build_parser() -> argparse.ArgumentParser:
     ing = sub.add_parser("ingest", help="verify and unpack extensions, write out/records.jsonl")
     ing.add_argument("--only", nargs="*", help="substring filter on folder name")
     ing.set_defaults(func=cmd_ingest)
-    for name, stage, h in [("analyze", 2, "manifest analysis"), ("scan", 3, "JS/HTML scanning"),
+    an = sub.add_parser("analyze", help="manifest analysis: fields and derived flags (Stage 2)")
+    an.add_argument("--only", nargs="*", help="substring filter on folder name")
+    an.set_defaults(func=cmd_analyze)
+    for name, stage, h in [("scan", 3, "JS/HTML scanning"),
                            ("classify", 4, "endpoint classification"), ("scrape", 5, "Chrome Web Store scraping"),
                            ("score", 6, "scoring and outputs"), ("report", 6, "console report")]:
         s = sub.add_parser(name, help=f"{h} (Stage {stage}, stub)")

@@ -48,6 +48,11 @@ class Record:
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "Record":
+        known = {f.name for f in fields(cls)}
+        return cls(**{k: v for k, v in d.items() if k in known})
+
 
 def schema() -> dict[str, Any]:
     """Describe the record: field name -> {type, stage}."""
@@ -74,3 +79,8 @@ def write_records(records: list[Record], out_dir: Path) -> Path:
         for r in records:
             fh.write(json.dumps(r.to_dict(), ensure_ascii=False) + "\n")
     return p
+
+
+def read_records(out_dir: Path) -> list[Record]:
+    p = out_dir / "records.jsonl"
+    return [Record.from_dict(json.loads(line)) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]

@@ -1,0 +1,71 @@
+# Permission risk tiers used by Stage 2. Edit freely; names match manifest strings.
+# high: lets the extension read/alter browsing data or traffic, or reach outside the browser.
+high:
+  - debugger
+  - webRequest
+  - webRequestBlocking
+  - webRequestAuthProvider
+  - declarativeNetRequestFeedback
+  - cookies
+  - history
+  - nativeMessaging
+  - proxy
+  - clipboardRead
+  - desktopCapture
+  - tabCapture
+  - pageCapture
+  - management
+  - privacy
+  - browsingData
+  - identity.email
+  - topSites
+  - downloads
+  - bookmarks
+  - readingList
+  - contentSettings
+# medium: sensitive, but common or narrower; also feeds combined flags.
+medium:
+  - tabs
+  - scripting
+  - webNavigation
+  - clipboardWrite
+  - geolocation
+  - identity
+  - declarativeNetRequest
+  - declarativeNetRequestWithHostAccess
+  - offscreen
+  - sessions
+  - tabGroups
+  - notifications
+  - alarms
+  - system.display
+  - system.cpu
+  - system.memory
+  - system.storage
+  - fileSystemProvider
+  - favicon
+  - activeTab
+  - userScripts
+# low: routine UI/storage capabilities; listed only so "unclassified" stays meaningful.
+low:
+  - storage
+  - unlimitedStorage
+  - sidePanel
+  - contextMenus
+  - background
+  - commands
+  - idle
+  - power
+  - tts
+  - ttsEngine
+  - action
+  - menus
+  - search
+  - fontSettings
+  - printing
+  - wallpaper
+
+# Host patterns that count as "broad" (any site). Matched after scheme/host parsing in code.
+# Anything whose host part is "*" (e.g. <all_urls>, *://*/*, https://*/*) is broad.
+# More than this many distinct hosts (excluding broad) is reported as host_scope "wide".
+wide_host_threshold: 10
