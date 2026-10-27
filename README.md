@@ -15,7 +15,7 @@ Input is a directory of extension folders (default `extension-targets/`), each c
 
 ## Usage
 
-Commands run in order and share one output file, `out/records.jsonl`. Each accepts `--only <substring>...` to restrict to matching folder names.
+Commands run in order and share one set of per-extension records in `out/records/`. Each accepts `--only <substring>...` to restrict to matching folder names.
 
 ```sh
 extscan ingest
@@ -30,8 +30,8 @@ Verifies and unpacks extensions into `work/unpacked/<ext_id>/`.
 - Checks the zip's SHA-256 against `meta.json`; a mismatch is recorded and nothing is extracted.
 - Extracts with guards against zip-slip, absolute paths, symlinks, excessive entry counts, oversized files and zip bombs (limits in `config/settings.yaml`).
 - Reads `manifest.json` (UTF-8 with BOM) and resolves `__MSG_*__` names and descriptions from `_locales/`.
-- Writes `out/records.jsonl` and `out/schema.json`. Each record carries an `ingest_status` of `ok`, `skipped`, `hash_mismatch` or `failed`.
-- Note: `ingest --only` rewrites `records.jsonl` with just the matching extensions.
+- Writes one `out/records/<ext_id>.json` per extension, plus `out/index.json` and `out/schema.json`. Each record carries an `ingest_status` of `ok`, `skipped`, `hash_mismatch` or `failed`.
+- A full `ingest` replaces the record set; `ingest --only` updates just the matching records and leaves the rest alone.
 
 ### `extscan analyze`
 Reads each manifest and records what the extension is *allowed* to do. Runs no code and makes no network calls.
@@ -61,11 +61,12 @@ Limits, ignored hosts and vendor rules are in `config/scan.yaml`; the regexes ar
 
 | Path | Contents |
 |---|---|
-| `out/records.jsonl` | One record per extension; each command fills its own section |
+| `out/records/<ext_id>.json` | One record per extension; each command fills its own section |
+| `out/index.json` | Lightweight listing: id, name, tier, ingest status, which stages are filled |
 | `out/schema.json` | Field names, types and the stage that populates each |
 | `work/unpacked/<ext_id>/` | Extracted extension files |
 
-All three are git-ignored.
+All of these are git-ignored. `scan` writes each record as soon as it finishes, so an interrupted run keeps its progress.
 
 ## Layout
 
@@ -75,7 +76,7 @@ extscan/    cli.py  config.py  record.py  ingest.py  manifest.py
 config/     settings.yaml     paths and extraction limits
             permissions.yaml  permission risk tiers
             scan.yaml         scan limits, ignored hosts, vendor rules
-tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py
+tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py  test_record_io.py
 ```
 
 ```sh

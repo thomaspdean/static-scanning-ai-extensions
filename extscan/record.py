@@ -6,6 +6,7 @@ sections exist as empty placeholders so the output shape is stable across stages
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 from typing import Any
@@ -72,15 +73,74 @@ def write_schema(out_dir: Path) -> Path:
     return p
 
 
-def write_records(records: list[Record], out_dir: Path) -> Path:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    p = out_dir / "records.jsonl"
-    with p.open("w", encoding="utf-8") as fh:
-        for r in records:
-            fh.write(json.dumps(r.to_dict(), ensure_ascii=False) + "\n")
+_SAFE_NAME = re.compile(r"^[A-Za-z0-9._-]+$")
+_STAGE_FIELDS = ("manifest", "scan", "endpoints", "store", "score")
+
+
+def records_dir(out_dir: Path) -> Path:
+    return out_dir / "records"
+
+
+def record_filename(rec: Record) -> str:
+    """`<ext_id>.json`; falls back to the folder name when the id is missing or unsafe."""
+    name = rec.ext_id if _SAFE_NAME.match(rec.ext_id or "") else rec.folder
+    return f"{name}.json"
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
+
+
+def _index_entry(rec: Record) -> dict[str, Any]:
+    return {"file": record_filename(rec), "ext_id": rec.ext_id, "folder": rec.folder, "tier": rec.tier,
+            "name": rec.name, "ingest_status": rec.ingest_status,
+            "stages_filled": [f for f in _STAGE_FIELDS if getattr(rec, f)]}
+
+
+def read_index(out_dir: Path) -> dict[str, dict[str, Any]]:
+    p = out_dir / "index.json"
+    try:
+        return {e["file"]: e for e in json.loads(p.read_text(encoding="utf-8"))["records"]}
+    except (OSError, ValueError, KeyError):
+        return {}
+
+
+def _write_index(out_dir: Path, entries: dict[str, dict[str, Any]]) -> None:
+    rows = sorted(entries.values(), key=lambda e: e["folder"])
+    _atomic_write(out_dir / "index.json", json.dumps({"schema_version": SCHEMA_VERSION, "records": rows}, indent=1) + "\n")
+
+
+def write_record(rec: Record, out_dir: Path, update_index: bool = True) -> Path:
+    """Write one record to out/records/<ext_id>.json (atomic) and refresh its index entry."""
+    d = records_dir(out_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    p = d / record_filename(rec)
+    _atomic_write(p, json.dumps(rec.to_dict(), indent=2, ensure_ascii=False) + "\n")
+    if update_index:
+        entries = read_index(out_dir)
+        entries[p.name] = _index_entry(rec)
+        _write_index(out_dir, entries)
     return p
 
 
+def write_records(records: list[Record], out_dir: Path, prune: bool = False) -> None:
+    """Write many records and one index update. With prune=True, other record files are deleted."""
+    entries = {} if prune else read_index(out_dir)
+    for r in records:
+        p = write_record(r, out_dir, update_index=False)
+        entries[p.name] = _index_entry(r)
+    if prune:
+        keep = set(entries)
+        for old in records_dir(out_dir).glob("*.json"):
+            if old.name not in keep:
+                old.unlink()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    _write_index(out_dir, entries)
+
+
 def read_records(out_dir: Path) -> list[Record]:
-    p = out_dir / "records.jsonl"
-    return [Record.from_dict(json.loads(line)) for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+    d = records_dir(out_dir)
+    recs = [Record.from_dict(json.loads(p.read_text(encoding="utf-8"))) for p in sorted(d.glob("*.json"))]
+    return sorted(recs, key=lambda r: r.folder)

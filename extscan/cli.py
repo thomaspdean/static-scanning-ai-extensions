@@ -8,14 +8,14 @@ from .config import load_settings
 from .ingest import ingest_all
 from .analyze_manifest import analyze_record, load_permission_tiers
 from .js_scan import load_scan_config, scan_records
-from .record import STATUS_OK, read_records, write_records, write_schema
+from .record import STATUS_OK, read_records, write_record, write_records, write_schema
 
 
 def cmd_ingest(args) -> int:
     st = load_settings()
     recs = ingest_all(st, args.only)
     write_schema(st.out_dir)
-    write_records(recs, st.out_dir)
+    write_records(recs, st.out_dir, prune=not args.only)   # a full ingest replaces the record set
     counts = collections.Counter(r.ingest_status for r in recs)
     print(f"loaded={counts[STATUS_OK]} total={len(recs)} "
           + " ".join(f"{k}={v}" for k, v in sorted(counts.items()) if k != STATUS_OK))
@@ -29,14 +29,12 @@ def cmd_analyze(args) -> int:
     st = load_settings()
     tiers = load_permission_tiers()
     recs = read_records(st.out_dir)
-    done = 0
     for r in recs:
         if args.only and not any(o in r.folder for o in args.only):
             continue
         analyze_record(r, st, tiers)
-        done += bool(r.manifest)
-    write_records(recs, st.out_dir)
-    print(f"analyzed={done} of {len(recs)} records")
+        write_record(r, st.out_dir)
+    print(f"analyzed={sum(bool(r.manifest) for r in recs)} of {len(recs)} records")
     return 0
 
 
@@ -45,9 +43,12 @@ def cmd_scan(args) -> int:
     cfg = load_scan_config()
     recs = read_records(st.out_dir)
     sel = [r for r in recs if not args.only or any(o in r.folder for o in args.only)]
-    scan_records(sel, st, cfg,
-                 progress=lambda r: print(f"  scanned {r.folder[:60]}  files={r.scan['coverage']['files_scanned']}", flush=True))
-    write_records(recs, st.out_dir)
+
+    def done(r):                      # write each record as it finishes so a crash loses nothing
+        write_record(r, st.out_dir)
+        print(f"  scanned {r.folder[:60]}  files={r.scan['coverage']['files_scanned']}", flush=True)
+
+    scan_records(sel, st, cfg, progress=done)
     print(f"scanned={sum(bool(r.scan) for r in recs)} of {len(recs)} records")
     return 0
 
@@ -62,7 +63,7 @@ def _stub(name: str, stage: int):
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="extscan", description="Static scanner for GenAI browser extensions")
     sub = p.add_subparsers(dest="cmd", required=True)
-    ing = sub.add_parser("ingest", help="verify and unpack extensions, write out/records.jsonl")
+    ing = sub.add_parser("ingest", help="verify and unpack extensions, write one JSON file per extension in out/records/")
     ing.add_argument("--only", nargs="*", help="substring filter on folder name")
     ing.set_defaults(func=cmd_ingest)
     an = sub.add_parser("analyze", help="manifest analysis: fields and derived flags (Stage 2)")
