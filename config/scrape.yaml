@@ -1,0 +1,33 @@
+# Chrome Web Store scraping (Stage 5).
+store:
+  url_template: "https://chromewebstore.google.com/detail/{ext_id}?hl=en"
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36"
+  cache_dir: cache/store           # <ext_id>.html (raw page) and <ext_id>.json (fetch metadata)
+  delay_s: 3.0                     # pause between live requests
+  jitter_s: 1.5                    # random extra pause, 0..jitter_s
+  timeout_s: 30
+  retries: 2                       # extra attempts on timeouts / 5xx / 429, with doubling backoff
+  backoff_s: 10
+  stop_after_blocked: 3            # abort the run after this many consecutive 403/429 responses
+
+# Data types the store's privacy-practices label can list.
+data_types:
+  - Personally identifiable information
+  - Health information
+  - Financial and payment information
+  - Authentication information
+  - Personal communications
+  - Location
+  - Web history
+  - User activity
+  - Website content
+
+# Popularity tiers as named in meta.json, with lower bounds (users) for the consistency check.
+tiers:
+  "<100": 0
+  "100 to 500": 100
+  "500 to 1K": 500
+  "1K to 10K": 1000
+  "10K to 100K": 10000
+  "100K to 1M": 100000
+  "1M+": 1000000

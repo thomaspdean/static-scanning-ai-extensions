@@ -8,6 +8,7 @@ from .config import load_settings
 from .ingest import ingest_all
 from .analyze_manifest import analyze_record, load_permission_tiers
 from .classify import build_shared, classify_record, load_lists, write_shared_csv
+from .scrape import Blocked, default_fetcher, load_scrape_config, scrape_all
 from .js_scan import load_scan_config, scan_records
 from .record import STATUS_OK, read_records, write_record, write_records, write_schema
 
@@ -71,6 +72,35 @@ def cmd_classify(args) -> int:
     return 0
 
 
+def cmd_scrape(args) -> int:
+    st = load_settings()
+    cfg = load_scrape_config()
+    if args.delay is not None:
+        cfg["store"]["delay_s"] = args.delay
+    recs = read_records(st.out_dir)
+    sel = [r for r in recs if not args.only or any(o in r.folder for o in args.only)]
+    fetch = None if args.no_fetch else default_fetcher(cfg)
+
+    def done(r):
+        write_record(r, st.out_dir)
+        s = r.store
+        src = "cache" if s.get("from_cache") else "live"
+        print(f"  {r.folder[:56]:56} {s['fetch_status']:11} parse={s['parse_status']:10} users={s.get('user_count')} "
+              f"privacy={s.get('privacy_practices', {}).get('status', '-')} [{src}]", flush=True)
+
+    try:
+        scrape_all(sel, st, cfg, fetch, refresh=args.refresh, progress=done)
+    except Blocked as e:
+        print(f"STOPPED: {e}", file=sys.stderr)
+        return 1
+    stores = [r.store for r in sel if r.store]
+    bad = [r for r in sel if r.store and r.store["parse_status"] not in ("ok",)]
+    print(f"scraped={len(stores)} parse_ok={len(stores) - len(bad)} needs_attention={len(bad)}")
+    for r in bad:
+        print(f"  {r.folder[:56]}: {'; '.join(r.store['parse_issues'])}")
+    return 0
+
+
 def _stub(name: str, stage: int):
     def run(args) -> int:
         print(f"'{name}' is not implemented yet (Stage {stage}).", file=sys.stderr)
@@ -93,8 +123,13 @@ def build_parser() -> argparse.ArgumentParser:
     cl = sub.add_parser("classify", help="label endpoint hosts by party/category, write shared_endpoints.csv")
     cl.add_argument("--only", nargs="*", help="substring filter on folder name")
     cl.set_defaults(func=cmd_classify)
-    for name, stage, h in [("scrape", 5, "Chrome Web Store scraping"),
-                           ("score", 6, "scoring and outputs"), ("report", 6, "console report")]:
+    sr = sub.add_parser("scrape", help="fetch Chrome Web Store pages: users, developer links, privacy practices")
+    sr.add_argument("--only", nargs="*", help="substring filter on folder name")
+    sr.add_argument("--refresh", action="store_true", help="ignore the cache and re-fetch")
+    sr.add_argument("--no-fetch", action="store_true", help="parse cached pages only; make no network requests")
+    sr.add_argument("--delay", type=float, help="seconds between live requests (default from config/scrape.yaml)")
+    sr.set_defaults(func=cmd_scrape)
+    for name, stage, h in [("score", 6, "scoring and outputs"), ("report", 6, "console report")]:
         s = sub.add_parser(name, help=f"{h} (Stage {stage}, stub)")
         s.set_defaults(func=_stub(name, stage))
     return p

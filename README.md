@@ -22,6 +22,7 @@ extscan ingest
 extscan analyze
 extscan scan
 extscan classify
+extscan scrape
 ```
 
 ### `extscan ingest`
@@ -72,8 +73,28 @@ Also recorded per endpoint: the registrable domain (public-suffix aware), whethe
 
 `unknown` is large for extensions that embed lists of supported websites (shopping, news and so on), because those are page-awareness lists rather than destinations. Prefer `near_sink`, `llm_provider` and `tracker` over the raw `unknown` count when judging where data goes.
 
+### `extscan scrape`
+Fetches each extension's Chrome Web Store page and records the *declared* side of the study: popularity, developer links and the privacy-practices label. Fills `record.store`. Store data is for the final disclosure-vs-behavior comparison and is not used for scoring.
+
+```sh
+extscan scrape --only under-100__ai-job 1K-to-10K__asksia 1M-plus__monica   # pilot set
+extscan scrape                                                               # all extensions
+extscan scrape --no-fetch                                                    # re-parse cached pages, no network
+extscan scrape --refresh                                                     # ignore the cache and re-fetch
+```
+
+- **Fetched:** `https://chromewebstore.google.com/detail/<ext_id>?hl=en`, sequentially, with a delay and random jitter between requests (default 3 s plus up to 1.5 s), retries with backoff on timeouts and 5xx/429, and an abort after 3 consecutive 403/429 responses. Settings are in `config/scrape.yaml`.
+- **Cached:** the raw HTML and fetch metadata for every successful page and every 404 go to `cache/store/<ext_id>.html` and `.json`. Cached pages are reused; errors and blocks are retried on the next run. A parser fix never requires a re-download: run `scrape --no-fetch`.
+- **Parsed** (from visible text and links, not CSS classes):
+  - `user_count`, rating and rating count, category, version, last updated, size, languages, developer name.
+  - Developer `website`, `support_url` and `privacy_policy_url`. Only the policy **URL** is recorded; the policy text is not fetched.
+  - `privacy_practices`: `status` (`declared_collection`, `declares_no_collection`, `no_types_listed`, `no_disclosure`, `no_section`, `unparsed`), the data types listed (personally identifiable information, health, financial and payment, authentication, personal communications, location, web history, user activity, website content), the three certifications (no sale, no unrelated use, no lending use) and the raw section text.
+  - `tier_check`: whether the scraped user count falls in the tier named in `meta.json`. Counts drift after download, so a mismatch is a flag, not an error.
+- **Failure handling:** every record gets `fetch_status` and `parse_status` (`ok`, `partial`, `failed`, `not_found`, `not_parsed`) with `parse_issues` explaining what was missing. The command ends with a list of records that need attention. The page markup is not under our control and can change; after a change, fix the parser and run `scrape --no-fetch`. The parser was written against the store layout as of October 2026. Statuses other than `declared_collection` for the no-collection case (`declares_no_collection`, `no_disclosure`) are based on assumed wording and have not been seen on a live page.
+- Store pages are scraped politely and for research use; keep the delay at its default or higher.
+
 ### Planned
-`scrape` (Chrome Web Store user counts and privacy practices), `score` and `report` (ranking and outputs). These subcommands exist as stubs and exit with code 2.
+`score` and `report` (ranking and outputs). These subcommands exist as stubs and exit with code 2.
 
 ## Output
 
@@ -81,6 +102,7 @@ Also recorded per endpoint: the registrable domain (public-suffix aware), whethe
 |---|---|
 | `out/records/<ext_id>.json` | One record per extension; each command fills its own section |
 | `out/shared_endpoints.csv` | Third-party hosts shared by two or more extensions |
+| `cache/store/<ext_id>.html` | Raw Web Store pages (git-ignored), reused by `scrape` |
 | `out/index.json` | Lightweight listing: id, name, tier, ingest status, which stages are filled |
 | `out/schema.json` | Field names, types and the stage that populates each |
 | `work/unpacked/<ext_id>/` | Extracted extension files |
@@ -91,12 +113,13 @@ All of these are git-ignored. `scan` writes each record as soon as it finishes, 
 
 ```
 extscan/    cli.py  config.py  record.py  ingest.py  manifest.py
-            analyze_manifest.py  signals.py  js_scan.py  classify.py
+            analyze_manifest.py  signals.py  js_scan.py  classify.py  scrape.py
 config/     settings.yaml     paths and extraction limits
             permissions.yaml  permission risk tiers
             scan.yaml         scan limits, ignored hosts, vendor rules
             trackers.yaml  llm_providers.yaml  known_hosts.yaml   endpoint lists
-tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py  test_record_io.py  test_classify.py
+            scrape.yaml       Web Store URL, pacing, retry, tier and data-type settings
+tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py  test_record_io.py  test_classify.py  test_scrape.py
 ```
 
 ```sh
