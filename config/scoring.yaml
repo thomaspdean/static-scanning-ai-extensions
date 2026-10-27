@@ -1,0 +1,72 @@
+# Suspicion score (Stage 6). Total = sum of component points, 0-100.
+#
+# Each component turns evidence into a 0..1 sub-score, then points = weight * sub-score.
+# The score ranks extensions for the dynamic sample; it is a lead, not a verdict.
+#
+# Design rules:
+#   - Presence, not counts: big bundles have thousands of hits, so one hit counts the same as 500.
+#   - First-party code only: signals found only in files tagged as vendor libraries are ignored,
+#     except tracker endpoints, which count wherever they are bundled.
+#   - Weak, near-universal flags (broad_host, can_inject_anywhere, web-accessible resources) and the
+#     raw count of unknown hosts carry no weight.
+#   - Chrome Web Store data (users, privacy label) is NOT used. It is for the later comparison.
+components:
+  permissions:                       # what the manifest lets it touch
+    weight: 15
+    high_risk_cap: 3                 # 3 or more high-risk permissions = full marks
+    optional_factor: 0.5             # optional high-risk permissions count at this fraction
+
+  injection_reach:                   # how early / deep it can run on arbitrary pages
+    weight: 15
+    broad_content_script: 0.10       # runs on every site
+    document_start: 0.30             # ...before the page's own scripts (broad scripts only)
+    all_frames: 0.30                 # ...inside iframes
+    main_world: 0.30                 # ...in the page's own JS world
+
+  page_harvesting:                   # code that reads page content (first-party)
+    weight: 25
+    signals:                         # signal name -> share of this component's weight
+      page_text: 0.50
+      page_html: 0.50
+      form_inputs: 0.30
+      password_field: 0.40
+      hidden_input: 0.20
+      selection: 0.20
+      iframe_access: 0.25
+      shadow_root_access: 0.15
+      document_cookie: 0.15
+      screenshot: 0.30
+      clipboard_read: 0.20
+      content_extractor: 0.30
+      page_url_title: 0.10
+      cookies_api: 0.25
+      history_api: 0.25
+
+  exfil_path:                        # harvested content plus a way out
+    weight: 20
+    sink: 0.25                       # a first-party network call (fetch, XHR, WebSocket, beacon...)
+    beacon: 0.15                     # sendBeacon / image-pixel / EventSource
+    harvest_and_sink: 0.35           # page content read AND a network call in first-party code
+    llm_endpoint: 0.25               # an LLM provider host in code or declared host permissions
+    sink_signals: [fetch, xhr, send_beacon, websocket, event_source, image_beacon, http_client_lib]
+    beacon_signals: [send_beacon, image_beacon, event_source]
+    harvest_signals: [page_text, page_html, form_inputs, password_field, selection]
+
+  third_party:                       # where it talks to
+    weight: 15
+    tracker: 0.60                    # tracker hosts, up to tracker_cap distinct
+    tracker_cap: 3
+    unknown_near_sink: 0.40          # unlabeled third-party hosts next to a network call, up to cap
+    unknown_cap: 3
+
+  code_risk:                         # dynamic code, obfuscation, shipped credentials
+    weight: 10
+    eval_or_new_function: 0.20
+    string_timer: 0.10
+    remote_code_load: 0.20           # remote <script src>, importScripts/import() of a URL, remote CSP script
+    execute_script: 0.15
+    main_world_injection: 0.15
+    obfuscated: 0.20                 # level suspected_obfuscated
+    minified: 0.05
+    hardcoded_credential: 0.20
+    non_store_update_url: 0.20

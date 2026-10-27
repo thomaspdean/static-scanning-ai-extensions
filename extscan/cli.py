@@ -7,6 +7,9 @@ import sys
 from .config import load_settings
 from .ingest import ingest_all
 from .analyze_manifest import analyze_record, load_permission_tiers
+from .outputs import write_endpoints, write_summary
+from .report import build_report
+from .scoring import load_scoring_config, score_all
 from .classify import build_shared, classify_record, load_lists, write_shared_csv
 from .scrape import Blocked, default_fetcher, load_scrape_config, scrape_all
 from .js_scan import load_scan_config, scan_records
@@ -101,11 +104,24 @@ def cmd_scrape(args) -> int:
     return 0
 
 
-def _stub(name: str, stage: int):
-    def run(args) -> int:
-        print(f"'{name}' is not implemented yet (Stage {stage}).", file=sys.stderr)
-        return 2
-    return run
+def cmd_score(args) -> int:
+    st = load_settings()
+    recs = read_records(st.out_dir)
+    n = score_all(recs, load_scoring_config())
+    for r in recs:
+        write_record(r, st.out_dir)
+    summary = write_summary(recs, st.out_dir)
+    endpoints = write_endpoints(recs, st.out_dir)
+    print(f"scored={n} of {len(recs)} records -> {summary.relative_to(st.root)}, {endpoints.relative_to(st.root)}")
+    if n < len(recs):
+        print(f"  {len(recs) - n} record(s) not scored (failed ingest, or missing analyze/scan)")
+    return 0
+
+
+def cmd_report(args) -> int:
+    st = load_settings()
+    print(build_report(read_records(st.out_dir), top=args.top, tier=args.tier))
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -129,9 +145,12 @@ def build_parser() -> argparse.ArgumentParser:
     sr.add_argument("--no-fetch", action="store_true", help="parse cached pages only; make no network requests")
     sr.add_argument("--delay", type=float, help="seconds between live requests (default from config/scrape.yaml)")
     sr.set_defaults(func=cmd_scrape)
-    for name, stage, h in [("score", 6, "scoring and outputs"), ("report", 6, "console report")]:
-        s = sub.add_parser(name, help=f"{h} (Stage {stage}, stub)")
-        s.set_defaults(func=_stub(name, stage))
+    sco = sub.add_parser("score", help="score and rank extensions; write out/summary.csv and out/endpoints.csv")
+    sco.set_defaults(func=cmd_score)
+    rep = sub.add_parser("report", help="print the ranking and population summary")
+    rep.add_argument("--top", type=int, default=15, help="rows in the ranking table (default 15)")
+    rep.add_argument("--tier", help="restrict the table to one tier, e.g. '1M+'")
+    rep.set_defaults(func=cmd_report)
     return p
 
 

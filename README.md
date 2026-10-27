@@ -15,14 +15,16 @@ Input is a directory of extension folders (default `extension-targets/`), each c
 
 ## Usage
 
-Commands run in order and share one set of per-extension records in `out/records/`. Each accepts `--only <substring>...` to restrict to matching folder names.
+Commands run in this order and share one set of per-extension records in `out/records/`. `ingest`, `analyze`, `scan`, `classify` and `scrape` accept `--only <substring>...` to restrict to matching folder names; `score` and `report` always cover every record.
 
 ```sh
 extscan ingest
 extscan analyze
 extscan scan
 extscan classify
-extscan scrape
+extscan scrape      # optional; not used in scoring
+extscan score
+extscan report
 ```
 
 ### `extscan ingest`
@@ -93,14 +95,42 @@ extscan scrape --refresh                                                     # i
 - **Failure handling:** every record gets `fetch_status` and `parse_status` (`ok`, `partial`, `failed`, `not_found`, `not_parsed`) with `parse_issues` explaining what was missing. The command ends with a list of records that need attention. The page markup is not under our control and can change; after a change, fix the parser and run `scrape --no-fetch`. The parser was written against the store layout as of October 2026. Statuses other than `declared_collection` for the no-collection case (`declares_no_collection`, `no_disclosure`) are based on assumed wording and have not been seen on a live page.
 - Store pages are scraped politely and for research use; keep the delay at its default or higher.
 
-### Planned
-`score` and `report` (ranking and outputs). These subcommands exist as stubs and exit with code 2.
+### `extscan score`
+Scores and ranks every extension that has been through `analyze` and `scan` (run `classify` first so endpoint evidence is included). Writes the `score` section of each record, `out/summary.csv` and `out/endpoints.csv`.
+
+The score is 0-100, the sum of six components. Each component turns evidence into a 0-1 sub-score and multiplies by its weight (`config/scoring.yaml`):
+
+| Component | Weight | What counts |
+|---|---|---|
+| `permissions` | 15 | High-risk permissions (optional ones at half weight) |
+| `injection_reach` | 15 | Content scripts on every site, and whether they run at `document_start`, in all frames, or in the `MAIN` world |
+| `page_harvesting` | 25 | First-party code that reads page text or HTML, forms, passwords, hidden inputs, selection, iframes, shadow roots, cookies, screenshots, the clipboard |
+| `exfil_path` | 20 | A network call in first-party code, beacon-style sends, page reads *combined with* a network call, an LLM provider endpoint |
+| `third_party` | 15 | Tracker hosts, and unlabeled third-party hosts next to network calls |
+| `code_risk` | 10 | `eval` / `new Function`, remote code loading, script injection, obfuscation, hard-coded credentials, a non-store `update_url` |
+
+How it is built: evidence counts once per signal, not per hit, because large bundles have thousands of hits. Only first-party code counts, except tracker hosts, which count wherever they are bundled. Broad host access, `can_inject_anywhere`, web-accessible resources and the raw number of unknown hosts carry no weight. **Chrome Web Store data is not used in the score.**
+
+Each record's `score` holds the total, per-component points with the reasons behind them, `top_reasons` (the four largest contributions), `rank_overall`, `rank_in_tier` and `notes` about scan coverage (large files scanned without beautifying, suspected obfuscation). Ties share a rank. The ranking feeds the choice of dynamic-test sample; it measures how much an extension *could* expose and how clearly its code shows page content going to a network call. It does not prove data leaves the browser. Bigger, more featureful extensions tend to rank higher.
+
+`out/summary.csv` has one row per extension, sorted by rank: the brief's schema fields (`ext_id`, `name`, `store`, `user_count`, `permissions`, `host_access`, `data_safety`, `static_endpoints`, `suspicion_rank`), the score and component points, `top_reasons`, key manifest flags, tracker and LLM hosts, and the store's privacy label (`not_scraped` until `scrape` has run). `out/endpoints.csv` has one row per extension and endpoint host with its party, category and evidence.
+
+### `extscan report`
+Prints the ranking to the console: the top-N table with each extension's strongest reason, the leaders of every tier, average points per component, and population counts (broad content scripts, page-text reads, trackers, LLM endpoints, suspected obfuscation).
+
+```sh
+extscan report              # top 15
+extscan report --top 30
+extscan report --tier '1M+'
+```
 
 ## Output
 
 | Path | Contents |
 |---|---|
 | `out/records/<ext_id>.json` | One record per extension; each command fills its own section |
+| `out/summary.csv` | One row per extension: score, rank, reasons, key flags, store label |
+| `out/endpoints.csv` | One row per extension and endpoint host with party and category |
 | `out/shared_endpoints.csv` | Third-party hosts shared by two or more extensions |
 | `cache/store/<ext_id>.html` | Raw Web Store pages (git-ignored), reused by `scrape` |
 | `out/index.json` | Lightweight listing: id, name, tier, ingest status, which stages are filled |
@@ -114,12 +144,14 @@ All of these are git-ignored. `scan` writes each record as soon as it finishes, 
 ```
 extscan/    cli.py  config.py  record.py  ingest.py  manifest.py
             analyze_manifest.py  signals.py  js_scan.py  classify.py  scrape.py
+            scoring.py  outputs.py  report.py
 config/     settings.yaml     paths and extraction limits
             permissions.yaml  permission risk tiers
             scan.yaml         scan limits, ignored hosts, vendor rules
             trackers.yaml  llm_providers.yaml  known_hosts.yaml   endpoint lists
+            scoring.yaml      component weights and signal weights
             scrape.yaml       Web Store URL, pacing, retry, tier and data-type settings
-tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py  test_record_io.py  test_classify.py  test_scrape.py
+tests/      test_ingest.py  test_analyze_manifest.py  test_js_scan.py  test_record_io.py  test_classify.py  test_scrape.py  test_scoring.py
 ```
 
 ```sh
