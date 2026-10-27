@@ -7,6 +7,7 @@ import sys
 from .config import load_settings
 from .ingest import ingest_all
 from .analyze_manifest import analyze_record, load_permission_tiers
+from .js_scan import load_scan_config, scan_records
 from .record import STATUS_OK, read_records, write_records, write_schema
 
 
@@ -39,6 +40,18 @@ def cmd_analyze(args) -> int:
     return 0
 
 
+def cmd_scan(args) -> int:
+    st = load_settings()
+    cfg = load_scan_config()
+    recs = read_records(st.out_dir)
+    sel = [r for r in recs if not args.only or any(o in r.folder for o in args.only)]
+    scan_records(sel, st, cfg,
+                 progress=lambda r: print(f"  scanned {r.folder[:60]}  files={r.scan['coverage']['files_scanned']}", flush=True))
+    write_records(recs, st.out_dir)
+    print(f"scanned={sum(bool(r.scan) for r in recs)} of {len(recs)} records")
+    return 0
+
+
 def _stub(name: str, stage: int):
     def run(args) -> int:
         print(f"'{name}' is not implemented yet (Stage {stage}).", file=sys.stderr)
@@ -55,8 +68,10 @@ def build_parser() -> argparse.ArgumentParser:
     an = sub.add_parser("analyze", help="manifest analysis: fields and derived flags (Stage 2)")
     an.add_argument("--only", nargs="*", help="substring filter on folder name")
     an.set_defaults(func=cmd_analyze)
-    for name, stage, h in [("scan", 3, "JS/HTML scanning"),
-                           ("classify", 4, "endpoint classification"), ("scrape", 5, "Chrome Web Store scraping"),
+    sc = sub.add_parser("scan", help="JS/HTML signal scan (Stage 3)")
+    sc.add_argument("--only", nargs="*", help="substring filter on folder name")
+    sc.set_defaults(func=cmd_scan)
+    for name, stage, h in [("classify", 4, "endpoint classification"), ("scrape", 5, "Chrome Web Store scraping"),
                            ("score", 6, "scoring and outputs"), ("report", 6, "console report")]:
         s = sub.add_parser(name, help=f"{h} (Stage {stage}, stub)")
         s.set_defaults(func=_stub(name, stage))

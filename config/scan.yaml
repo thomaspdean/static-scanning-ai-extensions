@@ -1,0 +1,55 @@
+# Stage 3 scan limits and noise filters.
+limits:
+  beautify_max_bytes: 5000000      # larger minified files are scanned raw
+  beautify_timeout_s: 10           # per file; on timeout the file is scanned raw
+  scan_max_bytes: 40000000         # larger files are skipped and recorded as unscanned
+  evidence_per_signal: 20
+  snippet_chars: 200
+  max_endpoint_hosts: 200
+  workers: 4
+
+# Only these suffixes are read. JSON is scanned for endpoint URLs only.
+code_suffixes: [.js, .mjs, .cjs, .html, .htm]
+json_suffixes: [.json]
+
+# Endpoint hosts that are never extension traffic (namespaces, doc links, placeholders).
+# A host matches if it equals an entry or ends with ".<entry>".
+ignore_hosts:
+  - w3.org
+  - xmlns.com
+  - schema.org
+  - json-schema.org
+  - localhost
+  - 127.0.0.1
+  - 0.0.0.0
+  - example.com
+  - example.org
+  - reactjs.org
+  - react.dev
+  - fb.me
+  - developer.mozilla.org
+  - mozilla.org
+  - stackoverflow.com
+  - npmjs.com
+  - developer.chrome.com
+  - chromium.org
+  - apache.org
+  - ietf.org
+  - unicode.org
+  - purl.org
+  - opensource.org
+  - gnu.org
+  - ecma-international.org
+  - tc39.es
+  - webkit.org
+  - whatwg.org
+  - mathworks.com
+  - openxmlformats.org
+  - microsoft.com/office
+
+# Files are tagged "vendor" (bundled third-party library) when the path or the first
+# 3 KB matches. Heuristic: a webpack bundle that embeds a library is not split up.
+vendor:
+  path_dirs: [node_modules, vendor, vendors, lib, libs, third_party, third-party, thirdparty, external, polyfills]
+  filename_regex: '(?i)(^|[._-])(jquery|react(-dom)?|lodash|underscore|moment|axios|sentry|bootstrap|angular|vue|polyfill|browser-polyfill|pdf(\.worker)?|pdfjs|highlight|katex|mathjax|d3|chart|popper|dompurify|core-js|tailwind)([._-]|\.min|\.js|$)'
+  banner_regex: '(?i)(jQuery\s+(JavaScript\s+Library|v\d)|React\s+v\d|lodash\s+(\(Custom Build\)|v\d)|Underscore\.js|Moment\.js|@sentry/|Sentry\.init|core-js|webextension-polyfill|DOMPurify|pdf\.js|Popper\.js)'

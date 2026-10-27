@@ -3,7 +3,7 @@ name = "extscan"
 version = "0.1.0"
 description = "Static scanner for GenAI browser extensions"
 requires-python = ">=3.10"
-dependencies = ["pyyaml"]
+dependencies = ["pyyaml", "jsbeautifier"]
 
 [project.optional-dependencies]
 dev = ["pytest"]
