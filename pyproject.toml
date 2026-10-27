@@ -1,0 +1,18 @@
+[project]
+name = "extscan"
+version = "0.1.0"
+description = "Static scanner for GenAI browser extensions"
+requires-python = ">=3.10"
+dependencies = ["pyyaml"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+extscan = "extscan.cli:main"
+
+[tool.setuptools]
+packages = ["extscan"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

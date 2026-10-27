@@ -1,0 +1,13 @@
+# Paths are relative to the project root.
+paths:
+  input_dir: extension-targets
+  work_dir: work
+  unpacked_dir: work/unpacked
+  out_dir: out
+
+# Safe-extraction guards (applied to the zip, measured on actual bytes written).
+extract:
+  max_files: 20000
+  max_file_bytes: 100000000        # 100 MB per file
+  max_total_bytes: 1000000000      # 1 GB per extension
+  max_ratio: 200                   # total uncompressed / zip size; guards zip bombs
